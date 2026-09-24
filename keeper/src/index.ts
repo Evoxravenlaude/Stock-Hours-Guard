@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { createPublicClient, createWalletClient, http, defineChain, parseAbi, type Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { Hono } from "hono";
@@ -25,6 +26,7 @@ const guardAbi = parseAbi([
   "function status(address) view returns ((string symbol,uint8 session,bool halted,bool active,uint8 tradability,uint64 updatedAt))",
   "function check(address token,uint256 quotedPrice,uint256 maxDeviationBps) view returns (uint8 verdict,uint256 reasons)",
   "function updateStatusBatch(address[] tokenList,uint8[] sessions,bool[] halted,bool[] active,uint8[] tradability)",
+  "function heartbeat()",
 ]);
 
 const pub = createPublicClient({ chain, transport: http(RPC_URL) });
@@ -66,6 +68,8 @@ type Snapshot = {
   tradability: number; bid?: string; ask?: string; pendingMultiplier?: string; pendingEffective?: string; at: string;
 };
 const latest = new Map<string, Snapshot>();
+const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000; // well under the contract's 10-minute outage window
+let lastOnchainWrite = 0;
 const REASONS = ["UNKNOWN_TOKEN","ASSET_INACTIVE","MARKET_CLOSED","EXTENDED_HOURS","TRADING_HALT","PENDING_CORP_ACT",
   "FEED_STALE","FEED_INVALID","PRICE_DEVIATION","SEQUENCER_DOWN","STATUS_STALE","CLOSING_ONLY"];
 export const decodeReasons = (bits: bigint) => REASONS.filter((_, i) => (bits >> BigInt(i)) & 1n);
@@ -110,7 +114,15 @@ async function tick() {
   });
   for (const r of rows) latest.set(r.token.toLowerCase(), r);
 
-  if (changed.length === 0) { console.log(`[${new Date().toISOString()}] ${sessionName(session)} — no change`); return; }
+  if (changed.length === 0) {
+    console.log(`[${new Date().toISOString()}] ${sessionName(session)} — no change`);
+    if (!DRY_RUN && wallet && Date.now() - lastOnchainWrite > HEARTBEAT_INTERVAL_MS) {
+      const hbHash = await wallet.writeContract({ address: GUARD, abi: guardAbi, functionName: "heartbeat", args: [] });
+      lastOnchainWrite = Date.now();
+      console.log("heartbeat tx", hbHash);
+    }
+    return;
+  }
   console.log(`[${new Date().toISOString()}] ${changed.length} change(s):`, changed.map((c) => `${c.symbol}:${c.sessionName}${c.halted ? ":HALT" : ""}`).join(" "));
   await notify(changed);
 
@@ -120,6 +132,7 @@ async function tick() {
     args: [changed.map((c) => c.token), changed.map((c) => c.session), changed.map((c) => c.halted),
            changed.map((c) => c.active), changed.map((c) => c.tradability)],
   });
+  lastOnchainWrite = Date.now();
   console.log("tx", hash);
 }
 
