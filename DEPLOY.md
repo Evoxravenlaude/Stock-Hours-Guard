@@ -46,3 +46,16 @@ answer decoded.
 
 ## 5. Prove the Arbitrum "new work" claim
 Commit and push after step 1 with the deploy tx hash and addresses in this file.
+
+## Testnet Deployment (Robinhood Chain testnet, chain 46630)
+
+- StockGuard:   0x0bb080330b8a361fb0cdd32432d770c1ebea86bc
+- GuardedVault: 0x14c2805250cd7ebe46241d06536fd3243b47e268
+- NVDA token:   0x19d42ac5f71e4753610d225749fd7379f57b3017
+- NVDA feed:    0x3fca4642e963b6f829aab21213af1066a174915c
+- AAPL token:   0x712330290e6f7e3a8516c11b9b54545ebe5ee2d9
+- AAPL feed:    0x507bd185b134d0feced54a6a045fafc6388cccd2
+- TSLA token:   0x6f765e81a7414008895e61d8999877ca2ef094b7
+- TSLA feed:    0x1a284b05b67f46c054e175a2c94bfe448aca6782
+
+Deployment tx: 0x8aeb6937c68f0da1a5fd0b85ae1d54b8c8ff318a1cce470b4ec69d6a8ab33009
