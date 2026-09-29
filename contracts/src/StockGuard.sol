@@ -49,13 +49,19 @@ contract StockGuard is IStockGuard {
     }
     Config public config;
 
-    // Keeper heartbeat doubles as a sequencer-liveness signal: Chainlink does not publish an
-    // L2 Sequencer Uptime Feed for Robinhood Chain (and is no longer adding networks), so if the
-    // keeper's heartbeats stop for longer than outageThreshold and then resume, we treat that as
-    // a recovered outage and apply sequencerGrace before trusting prices again.
-    uint64 public lastHeartbeat;
-    uint64 public recoveredAt;
-    uint32 public outageThreshold = 10 minutes;
+    // ---- Sentinel quorum (sequencer liveness without a Chainlink uptime feed)
+    // Chainlink does not publish an L2 Sequencer Uptime Feed for Robinhood Chain and has stopped
+    // adding networks. Instead, M independent sentinels post heartbeats. A sentinel that goes
+    // silent for longer than outageThreshold and then resumes records a recovery. check() raises
+    // SEQUENCER_DOWN while at least `quorum` sentinels are unhealthy, i.e. currently silent or
+    // recovered inside the last sequencerGrace seconds. One dead or malicious sentinel cannot
+    // fake or hide an outage on its own.
+    address[] private _sentinels;
+    mapping(address => bool) public isSentinel;
+    mapping(address => uint64) public lastBeat;
+    mapping(address => uint64) public recoveredAt;
+    uint8 public quorum = 1;
+    uint32 public outageThreshold = 15 minutes;
 
     mapping(address => AssetStatus) private _status;
     mapping(address => address) public feedOf;      // token => Chainlink proxy
@@ -66,13 +72,16 @@ contract StockGuard is IStockGuard {
     event KeeperSet(address indexed keeper, bool allowed);
     event ConfigSet(Config config);
     event AssetRegistered(address indexed token, string symbol, address feed);
-    event Heartbeat(uint64 at, bool recovered);
+    event SentinelSet(address indexed sentinel, bool allowed);
+    event QuorumSet(uint8 quorum, uint32 outageThreshold);
+    event Heartbeat(address indexed sentinel, uint64 at, bool recovered);
     event StatusUpdated(address indexed token, Session session, bool halted, bool active, Tradability tradability, uint64 at);
 
     // ----------------------------------------------------------------- errors
     error NotOwner();
     error NotKeeper();
     error AlreadyRegistered();
+    error NotSentinel();
 
     modifier onlyOwner() { if (msg.sender != owner) revert NotOwner(); _; }
     modifier onlyKeeper() { if (!isKeeper[msg.sender] && msg.sender != owner) revert NotKeeper(); _; }
@@ -80,6 +89,7 @@ contract StockGuard is IStockGuard {
     constructor(Config memory cfg) {
         owner = msg.sender;
         isKeeper[msg.sender] = true;
+        _setSentinel(msg.sender, true);
         config = cfg;
         emit ConfigSet(cfg);
     }
@@ -108,14 +118,51 @@ contract StockGuard is IStockGuard {
     }
 
     // ----------------------------------------------------------------- keeper
-    function setOutageThreshold(uint32 t) external onlyOwner { outageThreshold = t; }
+    function setSentinel(address sentinel, bool allowed) external onlyOwner { _setSentinel(sentinel, allowed); }
 
-    /// @notice Call on every keeper tick. A gap longer than outageThreshold marks a recovery.
-    function heartbeat() public onlyKeeper {
-        bool recovered = lastHeartbeat != 0 && block.timestamp - lastHeartbeat > outageThreshold;
-        if (recovered) recoveredAt = uint64(block.timestamp);
-        lastHeartbeat = uint64(block.timestamp);
-        emit Heartbeat(lastHeartbeat, recovered);
+    function setQuorum(uint8 q, uint32 threshold) external onlyOwner {
+        require(q >= 1 && q <= _sentinels.length, "quorum");
+        quorum = q;
+        outageThreshold = threshold;
+        emit QuorumSet(q, threshold);
+    }
+
+    function sentinels() external view returns (address[] memory) { return _sentinels; }
+
+    /// @notice Sentinels call this on a fixed cadence (well under outageThreshold).
+    function heartbeat() public {
+        if (!isSentinel[msg.sender]) revert NotSentinel();
+        uint64 prev = lastBeat[msg.sender];
+        bool recovered = prev != 0 && block.timestamp - prev > outageThreshold;
+        if (recovered) recoveredAt[msg.sender] = uint64(block.timestamp);
+        lastBeat[msg.sender] = uint64(block.timestamp);
+        emit Heartbeat(msg.sender, lastBeat[msg.sender], recovered);
+    }
+
+    /// @notice Sequencer health as seen by the sentinel set.
+    /// @return silent      sentinels whose last beat is older than outageThreshold
+    /// @return recovering  sentinels that recovered inside the last sequencerGrace seconds
+    function sentinelState() public view returns (uint256 silent, uint256 recovering) {
+        uint256 n = _sentinels.length;
+        uint32 grace = config.sequencerGrace;
+        for (uint256 i; i < n; ++i) {
+            address a = _sentinels[i];
+            uint64 lb = lastBeat[a];
+            if (lb != 0 && block.timestamp - lb > outageThreshold) silent++;
+            uint64 ra = recoveredAt[a];
+            if (ra != 0 && block.timestamp - ra < grace) recovering++;
+        }
+    }
+
+    function _setSentinel(address a, bool allowed) internal {
+        if (allowed && !isSentinel[a]) { isSentinel[a] = true; _sentinels.push(a); }
+        else if (!allowed && isSentinel[a]) {
+            isSentinel[a] = false;
+            uint256 n = _sentinels.length;
+            for (uint256 i; i < n; ++i) if (_sentinels[i] == a) { _sentinels[i] = _sentinels[n - 1]; _sentinels.pop(); break; }
+            if (quorum > _sentinels.length && _sentinels.length > 0) quorum = uint8(_sentinels.length);
+        }
+        emit SentinelSet(a, allowed);
     }
 
     function updateStatus(
@@ -125,7 +172,7 @@ contract StockGuard is IStockGuard {
         bool active,
         Tradability tradability
     ) external onlyKeeper {
-        heartbeat();
+        if (isSentinel[msg.sender]) heartbeat();
         require(registered[token], "unregistered");
         AssetStatus storage s = _status[token];
         s.session = session;
@@ -144,7 +191,7 @@ contract StockGuard is IStockGuard {
         bool[] calldata active,
         Tradability[] calldata tradability
     ) external onlyKeeper {
-        heartbeat();
+        if (isSentinel[msg.sender]) heartbeat();
         uint256 n = tokenList.length;
         require(sessions.length == n && halted.length == n && active.length == n && tradability.length == n, "len");
         for (uint256 i; i < n; ++i) {
@@ -200,8 +247,9 @@ contract StockGuard is IStockGuard {
         // ---- on-chain: sequencer (Chainlink feed if one exists, else keeper-heartbeat recovery grace)
         if (c.sequencerUptimeFeed != address(0)) {
             if (!_sequencerHealthy(c)) reasons |= R_SEQUENCER_DOWN;
-        } else if (recoveredAt != 0 && block.timestamp - recoveredAt < c.sequencerGrace) {
-            reasons |= R_SEQUENCER_DOWN;
+        } else {
+            (uint256 silent, uint256 recovering) = sentinelState();
+            if (silent + recovering >= quorum) reasons |= R_SEQUENCER_DOWN;
         }
 
         // ---- on-chain: Chainlink reference price

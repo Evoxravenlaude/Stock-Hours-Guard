@@ -33,6 +33,7 @@ contract StockGuardTest is Test {
         fake = new MockStockToken("NVIDIA Robinhood Token", "NVDA"); // copycat
         guard.registerAsset(address(nvda), "NVDA", address(feed));
         guard.setKeeper(keeper, true);
+        guard.setSentinel(keeper, true);
         vault = new GuardedVault(guard);
         _regular();
     }
@@ -154,6 +155,57 @@ contract StockGuardTest is Test {
         for (uint256 i; i < 7; ++i) { vm.warp(block.timestamp + 5 minutes); feed.set(180_00000000, block.timestamp); _regular(); }
         (, r) = guard.check(address(nvda), 0, 0);
         assertTrue(r & guard.R_SEQUENCER_DOWN() == 0);
+    }
+
+    function test_sentinel_quorum_two_of_three() public {
+        guard.setConfig(StockGuard.Config({maxFeedAge: 1 hours, maxStatusAge: 10 minutes, corpActionWindow: 1 days,
+            sequencerGrace: 30 minutes, sequencerUptimeFeed: address(0)}));
+        address s1 = address(0x51); address s2 = address(0x52);
+        guard.setSentinel(s1, true); guard.setSentinel(s2, true); // owner is the third
+        guard.setQuorum(2, 10 minutes);
+        // everyone beats at t0
+        guard.heartbeat(); vm.prank(s1); guard.heartbeat(); vm.prank(s2); guard.heartbeat();
+        // only the owner keeps beating; s1 and s2 go silent 45 minutes
+        for (uint256 i; i < 9; ++i) { vm.warp(block.timestamp + 5 minutes); guard.heartbeat(); _regular(); feed.set(180_00000000, block.timestamp); }
+        (uint256 silent,) = guard.sentinelState();
+        assertEq(silent, 2);
+        (, uint256 r) = guard.check(address(nvda), 0, 0);
+        assertTrue(r & guard.R_SEQUENCER_DOWN() != 0, "2 silent >= quorum");
+        // s1 alone comes back: recovering = 1 < quorum, but s2 still silent -> still down
+        vm.prank(s1); guard.heartbeat();
+        (, r) = guard.check(address(nvda), 0, 0);
+        assertTrue(r & guard.R_SEQUENCER_DOWN() != 0);
+        // s2 comes back: both recovering inside grace -> still down (grace)
+        vm.prank(s2); guard.heartbeat();
+        (, r) = guard.check(address(nvda), 0, 0);
+        assertTrue(r & guard.R_SEQUENCER_DOWN() != 0, "grace after quorum recovery");
+        // grace passes with everyone beating
+        for (uint256 i; i < 7; ++i) {
+            vm.warp(block.timestamp + 5 minutes); feed.set(180_00000000, block.timestamp);
+            guard.heartbeat(); vm.prank(s1); guard.heartbeat(); vm.prank(s2); guard.heartbeat(); _regular();
+        }
+        (, r) = guard.check(address(nvda), 0, 0);
+        assertTrue(r & guard.R_SEQUENCER_DOWN() == 0, "healthy");
+    }
+
+    function test_single_sentinel_outage_does_not_trip_quorum() public {
+        guard.setConfig(StockGuard.Config({maxFeedAge: 1 hours, maxStatusAge: 10 minutes, corpActionWindow: 1 days,
+            sequencerGrace: 30 minutes, sequencerUptimeFeed: address(0)}));
+        address s1 = address(0x51);
+        guard.setSentinel(s1, true); guard.setQuorum(2, 10 minutes);
+        vm.prank(s1); guard.heartbeat(); guard.heartbeat();
+        // s1 dies; owner keeps beating
+        for (uint256 i; i < 9; ++i) { vm.warp(block.timestamp + 5 minutes); guard.heartbeat(); _regular(); feed.set(180_00000000, block.timestamp); }
+        (, uint256 r) = guard.check(address(nvda), 0, 0);
+        assertTrue(r & guard.R_SEQUENCER_DOWN() == 0);
+        vm.prank(s1); guard.heartbeat(); // s1 recovers alone
+        (, r) = guard.check(address(nvda), 0, 0);
+        assertTrue(r & guard.R_SEQUENCER_DOWN() == 0);
+    }
+
+    function test_non_sentinel_cannot_heartbeat() public {
+        vm.expectRevert(StockGuard.NotSentinel.selector);
+        vm.prank(address(0xBAD)); guard.heartbeat();
     }
 
     function test_only_keeper_can_update() public {
