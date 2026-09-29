@@ -68,8 +68,18 @@ type Snapshot = {
   tradability: number; bid?: string; ask?: string; pendingMultiplier?: string; pendingEffective?: string; at: string;
 };
 const latest = new Map<string, Snapshot>();
-const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000; // well under the contract's 10-minute outage window
+// Heartbeat runs on its own timer so a Robinhood API outage (503s) never looks like a chain outage.
+const HEARTBEAT_INTERVAL_MS = Number(process.env.HEARTBEAT_MS ?? 4 * 60 * 1000); // 4 min cadence vs 15 min outageThreshold = 2 missed beats of slack
 let lastOnchainWrite = 0;
+async function heartbeat() {
+  if (DRY_RUN || !wallet) return;
+  if (Date.now() - lastOnchainWrite < HEARTBEAT_INTERVAL_MS) return; // a status write already counted as a beat
+  try {
+    const h = await wallet.writeContract({ address: GUARD, abi: guardAbi, functionName: "heartbeat", args: [] });
+    lastOnchainWrite = Date.now();
+    console.log("heartbeat tx", h);
+  } catch (e) { console.error("heartbeat failed:", (e as Error).message); }
+}
 const REASONS = ["UNKNOWN_TOKEN","ASSET_INACTIVE","MARKET_CLOSED","EXTENDED_HOURS","TRADING_HALT","PENDING_CORP_ACT",
   "FEED_STALE","FEED_INVALID","PRICE_DEVIATION","SEQUENCER_DOWN","STATUS_STALE","CLOSING_ONLY"];
 export const decodeReasons = (bits: bigint) => REASONS.filter((_, i) => (bits >> BigInt(i)) & 1n);
@@ -114,15 +124,7 @@ async function tick() {
   });
   for (const r of rows) latest.set(r.token.toLowerCase(), r);
 
-  if (changed.length === 0) {
-    console.log(`[${new Date().toISOString()}] ${sessionName(session)} — no change`);
-    if (!DRY_RUN && wallet && Date.now() - lastOnchainWrite > HEARTBEAT_INTERVAL_MS) {
-      const hbHash = await wallet.writeContract({ address: GUARD, abi: guardAbi, functionName: "heartbeat", args: [] });
-      lastOnchainWrite = Date.now();
-      console.log("heartbeat tx", hbHash);
-    }
-    return;
-  }
+  if (changed.length === 0) { console.log(`[${new Date().toISOString()}] ${sessionName(session)} — no change`); return; }
   console.log(`[${new Date().toISOString()}] ${changed.length} change(s):`, changed.map((c) => `${c.symbol}:${c.sessionName}${c.halted ? ":HALT" : ""}`).join(" "));
   await notify(changed);
 
@@ -164,3 +166,4 @@ app.get("/check/:token", async (c) => {
 serve({ fetch: app.fetch, port: PORT }, () => console.log(`keeper api on :${PORT} (${DRY_RUN ? "dry-run" : "live"})`));
 const loop = async () => { try { await tick(); } catch (e) { console.error("tick failed:", (e as Error).message); } };
 loop(); setInterval(loop, POLL_MS);
+heartbeat(); setInterval(heartbeat, HEARTBEAT_INTERVAL_MS);
