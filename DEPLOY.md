@@ -59,3 +59,15 @@ Commit and push after step 1 with the deploy tx hash and addresses in this file.
 - TSLA feed:    0x1a284b05b67f46c054e175a2c94bfe448aca6782
 
 Deployment tx: 0x8aeb6937c68f0da1a5fd0b85ae1d54b8c8ff318a1cce470b4ec69d6a8ab33009
+
+## 6. Sentinel quorum (after upgrading the contract)
+The quorum version of StockGuard is a new deployment (storage layout changed). Redeploy with
+`DeployTestnet.s.sol`, update `GUARD_ADDRESS` on Railway, then:
+```bash
+cast send $GUARD "setSentinel(address,bool)" <sentinel2> true --rpc-url $RPC --private-key $PK
+cast send $GUARD "setSentinel(address,bool)" <sentinel3> true --rpc-url $RPC --private-key $PK
+cast send $GUARD "setQuorum(uint8,uint32)" 2 900 --rpc-url $RPC --private-key $PK
+cast call $GUARD "sentinelState()(uint256,uint256)" --rpc-url $RPC
+```
+Run `npm run sentinel` on each extra machine with its own `SENTINEL_PRIVATE_KEY` (a second Railway
+service works). Two sentinels on different hosts plus the keeper gives a 2-of-3 quorum.

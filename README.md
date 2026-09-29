@@ -35,18 +35,23 @@ and gets `Allow / Warn / Block` with a reason bitmask:
 
 Hard blocks: unknown token, inactive, halt, invalid/stale feed, oracle paused, sequencer down, price deviation.
 
-**Sequencer note.** Robinhood's docs recommend a Chainlink L2 Sequencer Uptime Feed, but Chainlink does not
-list one for Robinhood Chain and has stopped adding networks. StockGuard therefore uses the keeper heartbeat
-as a liveness signal: a heartbeat gap longer than `outageThreshold` followed by a resumed heartbeat is treated
-as a recovered outage, and `SEQUENCER_DOWN` is raised for `sequencerGrace` seconds after recovery. If Chainlink
-ever ships a feed, set `sequencerUptimeFeed` and the contract uses it instead.
+**Sequencer sentinels.** Robinhood's docs recommend a Chainlink L2 Sequencer Uptime Feed, but Chainlink does
+not list one for Robinhood Chain and has stopped adding networks. StockGuard fills the gap with a sentinel
+quorum: M independent sentinels post `heartbeat()` every few minutes. A sentinel that goes silent longer
+than `outageThreshold` and then resumes records a recovery. `check()` raises `SEQUENCER_DOWN` while at least
+`quorum` sentinels are unhealthy (silent, or recovered inside the last `sequencerGrace` seconds). One dead
+or malicious sentinel cannot fake or hide an outage. Run one with `npm run sentinel`; the owner registers it
+with `setSentinel(addr, true)` and sets `setQuorum(q, threshold)`. If Chainlink ever ships a feed, set
+`sequencerUptimeFeed` and the contract uses it instead. Milestone 2 adds an L1 sentinel that posts status
+through the Sepolia/Ethereum delayed inbox so the flag flips *during* an outage, not only after.
 Everything else is a warning callers can branch on.
 
 ## Layout
 
 ```
-contracts/   Foundry. StockGuard.sol (registry + check), example GuardedVault, mocks, 11 tests
-keeper/      Node/TS. Robinhood REST + NYSE calendar → updateStatusBatch(); HTTP mirror + Telegram alerts
+contracts/   Foundry. StockGuard.sol (registry + check), example GuardedVault, mocks, 16 tests
+keeper/      Node/TS. Robinhood REST + NYSE calendar → updateStatusBatch(); heartbeat timer; HTTP mirror + Telegram alerts
+             src/sentinel.ts — standalone heartbeat-only sentinel for other operators
 registry/    Genuine token + feed addresses (built only from official sources)
 ```
 
