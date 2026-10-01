@@ -72,6 +72,7 @@ StockGuard v2: `0x169197E31D3EE134DFc08d379884eb8B4556b262` · deploy tx
   the stock leg with the caller's implied price; reverts on Block, emits `Warned(reasons)` on Warn.
 - `StockGuardHook.sol` — Uniswap v4 `beforeSwap` hook: pools containing a registered Stock Token
   refuse swaps while the guard says Block (halt, oracle pause, stale weekend feed, sequencer, copycat).
+
 ## Layout
 
 ```
