@@ -71,3 +71,29 @@ cast call $GUARD "sentinelState()(uint256,uint256)" --rpc-url $RPC
 ```
 Run `npm run sentinel` on each extra machine with its own `SENTINEL_PRIVATE_KEY` (a second Railway
 service works). Two sentinels on different hosts plus the keeper gives a 2-of-3 quorum.
+
+## v2 Deployment (sentinel quorum)
+
+Deployed 2026-10-01. Fresh deployment, not an upgrade — storage layout changed.
+
+| Contract | Address |
+|---|---|
+| StockGuard | 0x169197E31D3EE134DFc08d379884eb8B4556b262 |
+| GuardedVault | 0x4E02e6bAB5Eb5619a1e74174C3726852f12ac7af |
+| NVDA token / feed | 0xcc2e5173B4b7A025536991be893AE5945A3ba144 / 0xe615619ff4af78488cA0077Aa2E0Df208aEc47F5 |
+| AAPL token / feed | 0x5166775298cbC46c8243f4Edd65E63D50d8CbF1a / 0xF33057f22974d0efA20EBC16Fb6998278661567a |
+| TSLA token / feed | 0xb798193702C4e27Add00c0373fEbaA3BB7845821 / 0x11d47BB1e69d332C167d294C4D8C16E09C19fA10 |
+
+Deploy tx: 0x4563cda4dcc03a0e70a3e52d7ba50276e1abdab6d216219a60aeda480fafaf3e
+
+### Sentinel quorum: 2-of-3, three independent hosts
+
+| Sentinel | Address | Host |
+|---|---|---|
+| 1 (keeper) | 0x0D8FafA10024A45B0Edb86bA5cB716A9DF997036 | Railway |
+| 2 | 0xA91292A59416cDD46B83850748307c4B18180899 | Mac (pm2 + launchd) |
+| 3 | 0x16aD8a1550D2b027cC1A235AADd07aab355a0393 | Android/Termux (tmux + wake-lock) |
+
+`setQuorum(2, 900)` — 2 of 3 sentinels must be unhealthy to raise `SEQUENCER_DOWN`, outage threshold 900s.
+
+Wired 2026-10-01. Confirmed live via `sentinelState()`; recorded one real outage/recovery cycle during setup (Termux sentinel killed by Android/MIUI background management, recovered after battery/autostart exclusions applied) — see commit history and session logs for the timestamped sequence.
