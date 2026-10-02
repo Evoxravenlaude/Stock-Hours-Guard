@@ -27,6 +27,7 @@ const guardAbi = parseAbi([
   "function check(address token,uint256 quotedPrice,uint256 maxDeviationBps) view returns (uint8 verdict,uint256 reasons)",
   "function updateStatusBatch(address[] tokenList,uint8[] sessions,bool[] halted,bool[] active,uint8[] tradability)",
   "function heartbeat()",
+  "function feedOf(address) view returns (address)",
 ]);
 
 const pub = createPublicClient({ chain, transport: http(RPC_URL) });
@@ -80,6 +81,29 @@ async function heartbeat() {
     console.log("heartbeat tx", h);
   } catch (e) { console.error("heartbeat failed:", (e as Error).message); }
 }
+// Testnet-only: mock Chainlink feeds never self-update like the real thing does 24/5 on mainnet,
+// so re-stamp the same answer periodically to keep FEED_STALE from firing between real price changes.
+// Mainnet relies entirely on Chainlink's own heartbeat; this refresher is a no-op there.
+const FEED_REFRESH_MS = Number(process.env.FEED_REFRESH_MS ?? 15 * 60 * 1000); // 15 min, well inside maxFeedAge=3600
+const mockFeedAbi = parseAbi([
+  "function latestRoundData() view returns (uint80,int256,uint256,uint256,uint80)",
+  "function set(int256 answer, uint256 updatedAt)",
+]);
+async function refreshTestnetFeeds() {
+  if (CHAIN_ID !== 46630 || DRY_RUN || !wallet) return;
+  try {
+    const tokens = (await pub.readContract({ address: GUARD, abi: guardAbi, functionName: "tokens" })) as Address[];
+    for (const t of tokens) {
+      const feed = (await pub.readContract({ address: GUARD, abi: guardAbi, functionName: "feedOf", args: [t] })) as Address;
+      if (!feed || feed === "0x0000000000000000000000000000000000000000") continue;
+      const data = (await pub.readContract({ address: feed, abi: mockFeedAbi, functionName: "latestRoundData" })) as readonly [bigint, bigint, bigint, bigint, bigint];
+      const answer = data[1];
+      const h = await wallet.writeContract({ address: feed, abi: mockFeedAbi, functionName: "set", args: [answer, BigInt(Math.floor(Date.now() / 1000))] });
+      console.log(`refreshed mock feed ${feed}`, h);
+    }
+  } catch (e) { console.error("feed refresh failed:", (e as Error).message); }
+}
+
 const REASONS = ["UNKNOWN_TOKEN","ASSET_INACTIVE","MARKET_CLOSED","EXTENDED_HOURS","TRADING_HALT","PENDING_CORP_ACT",
   "FEED_STALE","FEED_INVALID","PRICE_DEVIATION","SEQUENCER_DOWN","STATUS_STALE","CLOSING_ONLY"];
 export const decodeReasons = (bits: bigint) => REASONS.filter((_, i) => (bits >> BigInt(i)) & 1n);
@@ -167,3 +191,4 @@ serve({ fetch: app.fetch, port: PORT }, () => console.log(`keeper api on :${PORT
 const loop = async () => { try { await tick(); } catch (e) { console.error("tick failed:", (e as Error).message); } };
 loop(); setInterval(loop, POLL_MS);
 heartbeat(); setInterval(heartbeat, HEARTBEAT_INTERVAL_MS);
+refreshTestnetFeeds(); setInterval(refreshTestnetFeeds, FEED_REFRESH_MS);
