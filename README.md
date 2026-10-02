@@ -1,5 +1,7 @@
 # Stock-Hours Guard
 
+**Demo video (2:59):** https://youtu.be/w-wEHWruzVM · **Live API:** https://stock-hours-guard-production.up.railway.app/check/0xcc2e5173B4b7A025536991be893AE5945A3ba144
+
 **One call before you touch a tokenized stock.**
 
 Robinhood Chain gives every Stock Token a Chainlink price. It does not tell your contract whether the
