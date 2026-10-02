@@ -97,3 +97,19 @@ Deploy tx: 0x4563cda4dcc03a0e70a3e52d7ba50276e1abdab6d216219a60aeda480fafaf3e
 `setQuorum(2, 900)` — 2 of 3 sentinels must be unhealthy to raise `SEQUENCER_DOWN`, outage threshold 900s.
 
 Wired 2026-10-01. Confirmed live via `sentinelState()`; recorded one real outage/recovery cycle during setup (Termux sentinel killed by Android/MIUI background management, recovered after battery/autostart exclusions applied) — see commit history and session logs for the timestamped sequence.
+
+### Integrations (v2)
+
+Deployed 2026-10-01 via `script/DeployIntegrations.s.sol`. `GuardedV3Router` is wired to a
+`MockV3Router`, not a live Uniswap V3 deployment — no confirmed Uniswap V3 address exists on
+Robinhood Chain testnet (chain 46630); only mainnet (4663) has a published SwapRouter02. Mock
+mirrors the real router's interface, consistent with this project's testnet-mocks-mirror-mainnet
+framing throughout.
+
+| Contract | Address |
+|---|---|
+| MockV3Router | 0x7C4ae0db1E1cB847FfA447A8d9957777F2A3EdDE |
+| GuardedV3Router | 0xdf0118474db9f1C4229F8Ef61E80c7Bca267F75B |
+
+Deploy txs: 0x6a7a19d5af16dfc47dae26765c1a8bfbaa1e9ff2620285aca04b86a28d6ac894 (MockV3Router),
+0xb6adb9caf33ac08ef9e134c79b631299ea2ddfd0d03f245f25fc74bbf991a255 (GuardedV3Router)
