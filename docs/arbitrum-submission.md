@@ -2,7 +2,7 @@
 
 **Category:** Promising Products (new financial primitive) — also entered in Open.
 **Chain:** Robinhood Chain Testnet (46630), an Arbitrum Orbit chain. Targeting the reserved Robinhood Chain slot.
-**Repo:** https://github.com/Evoxravenlaude/Stock-Hours-Guard · **Demo video:** <youtube link> · **Live API:** <railway url>/check/<token>
+**Repo:** https://github.com/Evoxravenlaude/Stock-Hours-Guard · **Demo video:** <youtube link> · **Live API:** https://stock-hours-guard-production.up.railway.app/check/<token>
 
 ## One line
 One call before you touch a tokenized stock: `guard.check(token, price, maxBps)` → Allow / Warn / Block with reasons.
