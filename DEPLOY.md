@@ -113,3 +113,11 @@ framing throughout.
 
 Deploy txs: 0x6a7a19d5af16dfc47dae26765c1a8bfbaa1e9ff2620285aca04b86a28d6ac894 (MockV3Router),
 0xb6adb9caf33ac08ef9e134c79b631299ea2ddfd0d03f245f25fc74bbf991a255 (GuardedV3Router)
+
+### Explorer verification
+
+All four contracts verified on Blockscout (source matches deployed bytecode):
+- StockGuard: https://explorer.testnet.chain.robinhood.com/address/0x169197e31d3ee134dfc08d379884eb8b4556b262
+- GuardedVault: https://explorer.testnet.chain.robinhood.com/address/0x4e02e6bab5eb5619a1e74174c3726852f12ac7af
+- MockV3Router: https://explorer.testnet.chain.robinhood.com/address/0x7c4ae0db1e1cb847ffa447a8d9957777f2a3edde
+- GuardedV3Router: https://explorer.testnet.chain.robinhood.com/address/0xdf0118474db9f1c4229f8ef61e80c7bca267f75b
