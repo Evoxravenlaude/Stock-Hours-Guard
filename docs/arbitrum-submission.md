@@ -2,7 +2,7 @@
 
 **Category:** Promising Products (new financial primitive) — also entered in Open.
 **Chain:** Robinhood Chain Testnet (46630), an Arbitrum Orbit chain. Targeting the reserved Robinhood Chain slot.
-**Repo:** <github link> · **Demo video:** <youtube link> · **Live API:** <railway url>/check/<token>
+**Repo:** https://github.com/Evoxravenlaude/Stock-Hours-Guard · **Demo video:** <youtube link> · **Live API:** <railway url>/check/<token>
 
 ## One line
 One call before you touch a tokenized stock: `guard.check(token, price, maxBps)` → Allow / Warn / Block with reasons.
@@ -26,13 +26,15 @@ Chainlink does not publish one for Robinhood Chain and has stopped adding networ
 - **Keeper** — Robinhood REST (`/assets`, `/prices.isTradingHalt`) + NYSE 24/5 calendar → `updateStatusBatch`
   only on change; HTTP mirror; Telegram alerts. Running on Railway since Sept 25 with every session transition
   recorded on-chain.
-- **Integrations** — `GuardedV3Router` (Uniswap V3, the DEX live on Robinhood Chain) and a Uniswap v4
-  `beforeSwap` hook. Example `GuardedVault`. 22 Foundry tests.
+- **Integrations** — `GuardedV3Router`, a wrapper for the Uniswap V3 SwapRouter interface (V3 is live on
+  Robinhood Chain mainnet; deployed on testnet against a mock router with the same interface), and a
+  Uniswap v4 `beforeSwap` hook. Example `GuardedVault`. 22 Foundry tests.
 
 ## What is honest about it
-Testnet has no Stock Tokens or equity feeds, so the testnet deployment uses mock tokens/feeds with the exact
-mainnet interfaces; the Guard bytecode is unchanged for mainnet. No mainnet deployment yet. Zero external
-users; the keeper and sentinels are ours.
+Testnet has no Stock Tokens, equity feeds, or Uniswap V3 deployment, so the testnet deployment uses mock
+tokens, feeds, and a mock V3 router with the exact mainnet interfaces; the Guard, router wrapper, and hook
+bytecode are unchanged for mainnet. No mainnet deployment yet. Zero external users; the keeper and all three
+sentinels are ours, on three separate providers.
 
 ## Milestones (half of prize paid against these)
 - **M1 (Oct):** mainnet deployment with the full Robinhood Stock Token roster registered from official sources;

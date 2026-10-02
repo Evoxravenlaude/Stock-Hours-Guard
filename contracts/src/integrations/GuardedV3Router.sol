@@ -3,7 +3,9 @@ pragma solidity ^0.8.24;
 
 import {IStockGuard} from "../interfaces/IStockGuard.sol";
 
-/// Minimal Uniswap V3 SwapRouter surface (exactInputSingle) — the DEX actually live on Robinhood Chain.
+/// Minimal Uniswap V3 SwapRouter surface (exactInputSingle). Uniswap V3 (SwapRouter02) is deployed on
+/// Robinhood Chain mainnet; on testnet this wrapper is deployed against MockV3Router, which implements
+/// the same interface. Point the constructor at the real router address for mainnet.
 interface ISwapRouterV3 {
     struct ExactInputSingleParams {
         address tokenIn; address tokenOut; uint24 fee; address recipient; uint256 deadline;
@@ -20,8 +22,8 @@ interface IERC20Min {
 /// @title GuardedV3Router
 /// @notice Drop-in wrapper for Uniswap V3 swaps involving a Stock Token. Runs guard.check() on the
 /// stock leg with the price implied by the caller's own quote, reverts with reason bits on Block,
-/// and emits the warning bits on Warn so bots and front ends can surface them. Works with the
-/// V3 router already deployed on Robinhood Chain; no hook support required.
+/// and emits the warning bits on Warn so bots and front ends can surface them. Targets the Uniswap V3
+/// router interface (mainnet SwapRouter02); no hook support required.
 contract GuardedV3Router {
     IStockGuard public immutable guard;
     ISwapRouterV3 public immutable router;

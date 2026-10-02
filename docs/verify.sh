@@ -11,3 +11,12 @@ forge verify-contract 0x169197E31D3EE134DFc08d379884eb8B4556b262 src/StockGuard.
 forge verify-contract 0x4E02e6bAB5Eb5619a1e74174C3726852f12ac7af src/examples/GuardedVault.sol:GuardedVault \
   --verifier blockscout --verifier-url https://explorer.testnet.chain.robinhood.com/api \
   --chain-id 46630 --constructor-args $(cast abi-encode "constructor(address)" 0x169197E31D3EE134DFc08d379884eb8B4556b262) --watch
+
+# Integrations (DeployIntegrations.s.sol). MockV3Router has no constructor args.
+forge verify-contract 0x7C4ae0db1E1cB847FfA447A8d9957777F2A3EdDE src/mocks/MockV3Router.sol:MockV3Router \
+  --verifier blockscout --verifier-url https://explorer.testnet.chain.robinhood.com/api \
+  --chain-id 46630 --watch
+# GuardedV3Router(guard, router, maxBps). Check maxBps against DeployIntegrations.s.sol before running.
+forge verify-contract 0xdf0118474db9f1C4229F8Ef61E80c7Bca267F75B src/integrations/GuardedV3Router.sol:GuardedV3Router \
+  --verifier blockscout --verifier-url https://explorer.testnet.chain.robinhood.com/api \
+  --chain-id 46630 --constructor-args "$(cast abi-encode "constructor(address,address,uint256)" 0x169197E31D3EE134DFc08d379884eb8B4556b262 0x7C4ae0db1E1cB847FfA447A8d9957777F2A3EdDE 150)" --watch

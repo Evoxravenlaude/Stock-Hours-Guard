@@ -68,7 +68,8 @@ StockGuard v2: `0x169197E31D3EE134DFc08d379884eb8B4556b262` · deploy tx
 
 ### Integrations (`contracts/src/integrations/`)
 
-- `GuardedV3Router.sol` — wrapper for the Uniswap V3 router live on Robinhood Chain. Runs `check()` on
+- `GuardedV3Router.sol` — wrapper for the Uniswap V3 SwapRouter interface (V3 is live on Robinhood Chain
+  mainnet; the testnet deployment is wired to `MockV3Router`, same interface). Runs `check()` on
   the stock leg with the caller's implied price; reverts on Block, emits `Warned(reasons)` on Warn.
 - `StockGuardHook.sol` — Uniswap v4 `beforeSwap` hook: pools containing a registered Stock Token
   refuse swaps while the guard says Block (halt, oracle pause, stale weekend feed, sequencer, copycat).

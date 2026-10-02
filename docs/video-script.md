@@ -11,7 +11,7 @@ The docs even say to check a sequencer uptime feed — which Chainlink doesn't p
 **0:45–1:45 Six scenarios (screen: terminal running Demo.s.sol + curl /check, explorer tx list beside it)**
 regular → Allow · closed → Warn MARKET_CLOSED · stale (61h feed) → Block FEED_STALE
 halt → Block TRADING_HALT (Telegram alert pops) · split → Warn PENDING_CORP_ACT · paused → Block ORACLE_PAUSED
-Then: GuardedV3Router swap succeeds in Regular, reverts on halt. Copycat address → Block UNKNOWN_TOKEN.
+Then: GuardedV3Router (testnet: mock V3 router, same interface) swap succeeds in Regular, reverts on halt. Copycat address → Block UNKNOWN_TOKEN.
 
 **1:45–2:20 Sentinels (screen: three terminals — Railway logs, Mac pm2, Termux — then sentinelState())**
 "Three sentinels on three providers. Quorum two. Here's the recorded outage: Termux got killed, recovered,
