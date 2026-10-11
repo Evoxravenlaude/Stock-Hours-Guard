@@ -111,12 +111,20 @@ Chain IDs: mainnet 4663, testnet 46630. Public RPC: `https://rpc.{mainnet,testne
 4. Schedule a 4:1 split on the token (`effectiveAt` tomorrow) → `Warn: PENDING_CORP_ACT`.
 5. Pass a copycat "NVDA" address → `Block: UNKNOWN_TOKEN`.
 
+## Known limitations
+
+- Testnet has no Stock Tokens, equity feeds or Uniswap V3, so the testnet deployment uses mock tokens, feeds and a mock V3 router with the exact mainnet interfaces; the Guard, router wrapper and hook bytecode are unchanged for mainnet. No mainnet deployment yet.
+- All three sentinels are ours, on three providers: the quorum covers a host failing, not the operator.
+- One keeper writes status; a stopped keeper means stale status until it resumes (`STATUS_STALE` flags it on-chain).
+- The NYSE calendar is maintained by hand for 2026–27.
+- No external integrators yet.
+
 ## Roadmap / milestones
 
 - M1 (hackathon): testnet deploy, full roster registered, keeper live, example consumer.
 - M2: mainnet deploy; Chainlink sequencer-uptime feed wired when published for Robinhood Chain; Uniswap v4 hook example.
 - M3: metered API + signed off-chain attestations for bots; integrations with one lending market and one AMM.
 
-## What is new for the Arbitrum Open House window
+## Hackathons
 
-Everything in this repo was started on 2026-09-22 inside the buildathon window. No prior code.
+Started 2026-09-22 inside the Arbitrum Open House Singapore window (submitted Oct 3) and entered in Colosseum's Crypto World's Fair, Robinhood Chain track (`docs/colosseum-submission.md`). MIT licensed.

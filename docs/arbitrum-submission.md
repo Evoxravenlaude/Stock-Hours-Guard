@@ -47,4 +47,4 @@ sentinels are ours, on three separate providers.
   aggregators and lending markets, who carry the liquidation risk and already read Chainlink.
 
 ## Team
-<names, roles, one line each>
+Solo. Rav3n: GitHub Evoxravenlaude, X @rv3nlaud3, Telegram @rav3nlaud.
